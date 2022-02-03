@@ -1,3 +1,11 @@
+function _arrayLikeToArray(arr, len) {
+    if (len == null || len > arr.length) len = arr.length;
+    for(var i = 0, arr2 = new Array(len); i < len; i++)arr2[i] = arr[i];
+    return arr2;
+}
+function _arrayWithHoles(arr) {
+    if (Array.isArray(arr)) return arr;
+}
 function _defineProperty(obj, key, value) {
     if (key in obj) {
         Object.defineProperty(obj, key, {
@@ -18,6 +26,33 @@ function _instanceof(left, right) {
         return left instanceof right;
     }
 }
+function _iterableToArrayLimit(arr, i) {
+    var _i = arr == null ? null : typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"];
+    if (_i == null) return;
+    var _arr = [];
+    var _n = true;
+    var _d = false;
+    var _s, _e;
+    try {
+        for(_i = _i.call(arr); !(_n = (_s = _i.next()).done); _n = true){
+            _arr.push(_s.value);
+            if (i && _arr.length === i) break;
+        }
+    } catch (err) {
+        _d = true;
+        _e = err;
+    } finally{
+        try {
+            if (!_n && _i["return"] != null) _i["return"]();
+        } finally{
+            if (_d) throw _e;
+        }
+    }
+    return _arr;
+}
+function _nonIterableRest() {
+    throw new TypeError("Invalid attempt to destructure non-iterable instance.\\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
 function _objectSpread(target) {
     for(var i = 1; i < arguments.length; i++){
         var source = arguments[i] != null ? arguments[i] : {};
@@ -32,6 +67,17 @@ function _objectSpread(target) {
         });
     }
     return target;
+}
+function _slicedToArray(arr, i) {
+    return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest();
+}
+function _unsupportedIterableToArray(o, minLen) {
+    if (!o) return;
+    if (typeof o === "string") return _arrayLikeToArray(o, minLen);
+    var n = Object.prototype.toString.call(o).slice(8, -1);
+    if (n === "Object" && o.constructor) n = o.constructor.name;
+    if (n === "Map" || n === "Set") return Array.from(n);
+    if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
 }
 function createTextElement(text) {
     return {
@@ -169,9 +215,9 @@ function workLoop(deadline) {
     requestIdleCallback(workLoop);
 }
 requestIdleCallback(workLoop);
-function reconcileChildren(elements, wipFiber) {
+function reconcileChildren(elements, wipFiber1) {
     var index = 0;
-    var oldFiber = wipFiber.alternate && wipFiber.alternate.child;
+    var oldFiber = wipFiber1.alternate && wipFiber1.alternate.child;
     var prevSibling = null;
     while(index < elements.length || oldFiber != null){
         var element2 = elements[index];
@@ -182,7 +228,7 @@ function reconcileChildren(elements, wipFiber) {
             newFiber = {
                 type: oldFiber.type,
                 props: element2.props,
-                parent: wipFiber,
+                parent: wipFiber1,
                 dom: oldFiber.dom,
                 alternate: oldFiber,
                 effectTag: "UPDATE"
@@ -193,7 +239,7 @@ function reconcileChildren(elements, wipFiber) {
             newFiber = {
                 type: element2.type,
                 props: element2.props,
-                parent: wipFiber,
+                parent: wipFiber1,
                 dom: null,
                 alternate: null,
                 effectTag: "PLACEMENT"
@@ -208,7 +254,7 @@ function reconcileChildren(elements, wipFiber) {
             oldFiber = oldFiber.sibling;
         }
         if (index === 0) {
-            wipFiber.child = newFiber;
+            wipFiber1.child = newFiber;
         } else {
             prevSibling.sibling = newFiber;
         }
@@ -216,7 +262,12 @@ function reconcileChildren(elements, wipFiber) {
         index++;
     }
 }
+var wipFiber = null;
+var hookIndex = null;
 function updateFunctionComponent(fiber) {
+    wipFiber = fiber;
+    hookIndex = 0;
+    wipFiber.hooks = [];
     var children = [
         fiber.type(fiber.props)
     ];
@@ -248,9 +299,38 @@ function performUnitOfWork(fiber) {
         nextFiber = nextFiber.parent;
     }
 }
+function useState(initial) {
+    var oldHook = wipFiber.alternate && wipFiber.alternate.hooks && wipFiber.alternate.hooks[hookIndex];
+    var hook = {
+        state: oldHook ? oldHook.state : initial,
+        queue: []
+    };
+    wipFiber.hooks.push(hook);
+    hookIndex++;
+    var actions = oldHook ? oldHook.queue : [];
+    actions.forEach(function(action) {
+        hook.state = action(hook.state);
+    });
+    var setState = function(action) {
+        hook.queue.push(action);
+        wipRoot = {
+            dom: currentRoot.dom,
+            props: currentRoot.props,
+            alternate: currentRoot
+        };
+        nextUnitOfWork = wipRoot;
+        deletions = [];
+    };
+    return [
+        hook.state,
+        setState
+    ];
+}
+function useEffect(action) {}
 var Didact = {
     createElement: createElement,
-    render: render
+    render: render,
+    useState: useState
 };
 var clickCount = 0;
 var handler = function(e) {
@@ -262,15 +342,20 @@ var handler = function(e) {
     return(/*#__PURE__*/ Didact.createElement("h3", null, "Click count ", props.count));
 }
 /** @jsx Didact.createElement */ function App(props) {
+    var ref = _slicedToArray(Didact.useState(0), 2), state = ref[0], setState = ref[1];
     return(/*#__PURE__*/ Didact.createElement("div", {
         id: "foo"
     }, /*#__PURE__*/ Didact.createElement("a", {
         id: "test",
         href: "https://scoutdi.com"
     }, "Goto scout-di website ", props.name), /*#__PURE__*/ Didact.createElement("b", null), /*#__PURE__*/ Didact.createElement("div", null, /*#__PURE__*/ Didact.createElement(CountSummary, {
-        count: clickCount
+        count: state
     }), /*#__PURE__*/ Didact.createElement("button", {
-        onClick: handler
+        onClick: function() {
+            return setState(function(c) {
+                return c + 1;
+            });
+        }
     }, "Test"))));
 }
 var element = /*#__PURE__*/ Didact.createElement(App, {

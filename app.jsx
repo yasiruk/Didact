@@ -101,7 +101,7 @@ function commitWork(fiber) {
         return;
     }
     let domParentFiber = fiber.parent;
-    while(!domParentFiber.dom) {
+    while (!domParentFiber.dom) {
         domParentFiber = domParentFiber.parent;
     }
 
@@ -211,7 +211,14 @@ function reconcileChildren(elements, wipFiber) {
     }
 }
 
+let wipFiber = null
+let hookIndex = null
+
 function updateFunctionComponent(fiber) {
+    wipFiber = fiber
+    hookIndex = 0
+    wipFiber.hooks = []
+
     const children = [fiber.type(fiber.props)];
 
     reconcileChildren(children, fiber);
@@ -252,9 +259,45 @@ function performUnitOfWork(fiber) {
     }
 }
 
+function useState(initial) {
+    const oldHook = wipFiber.alternate && wipFiber.alternate.hooks && wipFiber.alternate.hooks[hookIndex];
+
+    const hook = {
+        state: oldHook ? oldHook.state : initial,
+        queue: []
+    };
+
+    wipFiber.hooks.push(hook)
+    hookIndex++;
+
+    const actions = oldHook ? oldHook.queue : []
+
+    actions.forEach(action => {
+        hook.state = action(hook.state)
+    });
+
+    const setState = action => {
+        hook.queue.push(action)
+        wipRoot = {
+            dom: currentRoot.dom,
+            props: currentRoot.props,
+            alternate: currentRoot
+        }
+        nextUnitOfWork = wipRoot
+        deletions = []
+    };
+
+    return [hook.state, setState]
+}
+
+function useEffect(action) {
+
+}
+
 const Didact = {
     createElement,
     render,
+    useState
 };
 
 let clickCount = 0;
@@ -274,12 +317,14 @@ function CountSummary(props) {
 
 /** @jsx Didact.createElement */
 function App(props) {
+    const [state, setState] = Didact.useState(0);
+
     return <div id="foo">
         <a id="test" href="https://scoutdi.com">Goto scout-di website {props.name}</a>
         <b/>
         <div>
-            <CountSummary count={clickCount}/>
-            <button onClick={handler}>Test</button>
+            <CountSummary count={state}/>
+            <button onClick={() => setState(c => c + 1)}>Test</button>
         </div>
     </div>;
 }
